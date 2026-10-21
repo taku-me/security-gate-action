@@ -1,0 +1,9 @@
+{
+  "name": "fleet-security-gate-lint",
+  "private": true,
+  "description": "security-gate の中央の eslint 設定が読む plugin(fleet-skills docs/security-gate-design.md)",
+  "devDependencies": {
+    "eslint": "10.13.0",
+    "eslint-plugin-security": "4.2.0"
+  }
+}

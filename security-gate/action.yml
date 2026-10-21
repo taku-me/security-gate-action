@@ -1,0 +1,71 @@
+# security-gate(composite action)。設計: fleet-skills docs/security-gate-design.md §2.2
+# 各 repo の caller(security_gate/templates/caller.yml、job 名 security-gate)がこれを直に uses する。
+# checkout から道具の用意、gate.py、zizmor まで全部ここ。action 自身の repo(fleet-skills)は runner が取るので、
+# gate.py は ${{ github.action_path }} から流す。非公開 repo から使うには fleet-skills の Actions の Access 設定が要る。
+name: security-gate
+description: 今日塞いだ穴(秘密・bind・注入・パス・XSS・Actions・依存・linter)を決定論で検査する。正典は fleet-skills security_gate/
+inputs:
+  mode:
+    description: warn か block(空なら repo の .security-gate.toml か fleet-skills の既定)
+    default: ""
+  extended:
+    description: pip-audit・npm audit・zizmor も流す
+    default: "true"
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.0.0
+      with:
+        persist-credentials: false
+        fetch-depth: 0
+    - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+      with:
+        python-version: "3.12"
+    - uses: astral-sh/setup-uv@caf0cab7a618c569241d31dcd442f54681755d39 # v3.2.4
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      with:
+        node-version: "22"
+    - name: 道具(ruff・pip-audit・zizmor・shellcheck・actionlint・eslint)
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        set -euo pipefail
+        for t in ruff pip-audit zizmor shellcheck-py actionlint-py; do uv tool install "$t" >/dev/null; done
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        npm ci --prefix "$ACTION_PATH/../security_gate/lint" --no-audit --no-fund >/dev/null
+    - name: security-gate
+      shell: bash
+      env:
+        GATE_BASE: ${{ github.base_ref }}
+        GATE_MODE: ${{ inputs.mode }}
+        GATE_EXTENDED: ${{ inputs.extended }}
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        set -euo pipefail
+        export PATH="$HOME/.local/bin:$PATH"
+        args=()
+        if [ -n "$GATE_BASE" ]; then
+          git fetch --no-tags --depth=200 origin "+refs/heads/$GATE_BASE:refs/remotes/origin/$GATE_BASE" || true
+          args+=(--base "origin/$GATE_BASE")
+        fi
+        if [ -n "$GATE_MODE" ]; then args+=(--mode "$GATE_MODE"); fi
+        if [ "$GATE_EXTENDED" = "true" ]; then args+=(--extended); else args+=(--no-extended); fi
+        rc=0
+        python3 "$ACTION_PATH/../security_gate/gate.py" ci "${args[@]}" --json --summary-file "$GITHUB_STEP_SUMMARY" > security-gate.json || rc=$?
+        python3 - <<'PY'
+        import json, sys
+        d = json.load(open("security-gate.json"))
+        for f in d["findings"]:
+            kind = "error" if f["level"] == "error" else "warning"
+            print(f"::{kind} file={f['path']},line={f['line']},title={f['rule']}::{f['message']}")
+        print(f"security-gate: error {d['errors']} / warn {d['warns']} / allowed {d['allowed']} / files {d['files']} / {d['seconds']}s / mode={d['mode']}")
+        PY
+        exit "${rc:-0}"
+    - name: 結果を artifact に(warn の数を集める経路。反証 §9(運用)#6)
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: security-gate
+        path: security-gate.json
+        retention-days: 30

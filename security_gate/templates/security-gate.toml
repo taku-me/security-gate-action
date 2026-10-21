@@ -1,0 +1,11 @@
+# security-gate の repo ごとの設定。設計: fleet-skills docs/security-gate-design.md §3.4
+# mode を省略すると fleet-skills の既定(段 1 は warn、段 3 で block)。
+# 誤検知は [[allow]] に理由(10 文字以上)を書いて許可する。許可の数は毎回出力に出て、毎日の照合で数えられる。
+[gate]
+mode = "warn"
+
+# [[allow]]
+# rule = "bind.all-interfaces"
+# path = "ops/start.sh"
+# reason = "tailnet の中だけで待つ。Funnel には出していない(2026-10-20 実測)"
+# expires = "2027-01-31"

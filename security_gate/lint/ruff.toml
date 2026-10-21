@@ -1,0 +1,17 @@
+# security-gate の中央の ruff 設定(flake8-bandit S・flake8-async ASYNC)。設計: docs/security-gate-design.md §1.2
+# repo ごとに置かず、gate.py が `ruff check --config <この file>` で全 repo に同じ規則をかける。
+# 自分の規則(rules/*.py)と重なるものも多いが、pickle・yaml.load・verify=False・requests の timeout など、linter の方が深い所を足す。
+# 落とすもの(うるさく、今日の穴の種類でない): S101 assert、S110/S112 try-except-pass、S603/S607 subprocess の配列(shell 無し)、S606、S404
+# level の割り当ては rules/lint.py の RUFF_ERROR(それ以外の S・ASYNC は warn)
+line-length = 200
+target-version = "py39"
+
+[lint]
+select = ["S", "ASYNC"]
+ignore = ["S101", "S110", "S112", "S404", "S603", "S606", "S607"]
+
+[lint.per-file-ignores]
+"**/tests/**" = ["S"]
+"**/test_*.py" = ["S"]
+"**/*_test.py" = ["S"]
+"**/conftest.py" = ["S"]

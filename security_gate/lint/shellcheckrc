@@ -1,0 +1,4 @@
+# security-gate の中央の shellcheck 設定。gate.py が SHELLCHECKRC=<この file> で読ませる。設計: docs/security-gate-design.md §1.2
+# severity は gate.py 側で決める(error → error、warning → warn)。ここでは source の追い方と外す規則だけ
+external-sources=false
+disable=SC1090,SC1091

@@ -1,0 +1,16 @@
+# security-gate: 艦隊の必須チェック。中身は fleet-skills(docs/security-gate-design.md)。この file は変えない
+# @security-gate-action は main から自動で作る枝(publish-action.yml)。main 直はrepo の外を指す symlink で action の展開が落ちる
+# status check の名前は job 名の "security-gate"(branch protection / security-watch の照合がこの名前を見る)
+name: security-gate
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+permissions:
+  contents: read
+jobs:
+  security-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: taku-me/fleet-skills/security-gate@security-gate-action
