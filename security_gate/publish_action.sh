@@ -22,9 +22,12 @@ build_tree() {  # $1 に action に要る物だけを置く
     local out="$1" d
     for d in security-gate security_gate; do
         mkdir -p "$out/$d"
-        (cd "$SRC/$d" && git -C "$SRC" ls-files -z -- "$d" | sed -z "s|^$d/||" | tar cf - --null -T - ) | (cd "$out/$d" && tar xf -)
+        # 子のディレクトリで ls-files を引くと、パスはそこからの相対で出る(GNU sed の -z を使わない。macOS の BSD sed に無い)
+        (cd "$SRC/$d" && git ls-files -z -- . | tar cf - --null -T - ) | (cd "$out/$d" && tar xf -)
     done
     rm -rf "$out/security_gate/tests" "$out/security_gate/lint/node_modules"
+    # local_ci(手元の関門)は caller が呼ぶ action に要らない。local_ci.json は非公開 repo の名前・checkout の場所の一覧なので、公開の写しへ出さない
+    rm -f "$out/security_gate/local_ci.json" "$out/security_gate/local_ci.py"
     find "$out" -name __pycache__ -type d -prune -exec rm -rf {} +
 }
 if [ "${1:-}" = "--tree" ]; then
