@@ -5,5 +5,8 @@
   "devDependencies": {
     "eslint": "10.13.0",
     "eslint-plugin-security": "4.2.0"
+  },
+  "overrides": {
+    "minimatch": "11.0.1"
   }
 }
