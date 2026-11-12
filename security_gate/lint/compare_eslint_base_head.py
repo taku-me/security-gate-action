@@ -23,6 +23,8 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 HERE = Path(__file__).resolve().parent
+# rules/lint.py の _eslint が config path の後ろ・"--" の前に渡す固定引数。test_lint_tools.py が lint.py の実ソースと突き合わせる
+ESLINT_FLAGS = ["--no-config-lookup", "--config", "<config>", "--format", "json", "--no-error-on-unmatched-pattern"]
 LINT_FILES = ["package.json", "package-lock.json", "eslint.config.mjs"]
 BAD = "const cp = require('child_process');\ncp.exec(x);\neval(y);\nconst r = new RegExp(z);\nif (token == secret) {}\n"
 FIXTURE_FILES = {
@@ -65,8 +67,8 @@ def modes(fx: Path) -> Dict[str, List[str]]:
 def run_eslint(lint: Path, fx: Path, args: List[str]) -> Tuple[int, list]:
     # gate.py(rules/lint.py _eslint)と同じ引数。ignore-pattern だけ、その option を足す
     pre, tail = ([], args) if "--" not in args else (args[:args.index("--")], args[args.index("--") + 1:])
-    argv = [str(lint / "node_modules/.bin/eslint"), "--no-config-lookup", "--config", str(lint / "eslint.config.mjs"),
-            "--format", "json", "--no-error-on-unmatched-pattern", *pre, "--", *tail]
+    flags = [str(lint / "eslint.config.mjs") if f == "<config>" else f for f in ESLINT_FLAGS]
+    argv = [str(lint / "node_modules/.bin/eslint"), *flags, *pre, "--", *tail]
     p = subprocess.run(argv, cwd=fx, capture_output=True, text=True)
     if not p.stdout.strip() or p.returncode not in (0, 1):
         raise RuntimeError(f"eslint 出力なし rc={p.returncode}: {p.stderr.strip()[:300]}")

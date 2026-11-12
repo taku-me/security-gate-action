@@ -11,15 +11,11 @@
 外した後に確かめること(値ではなく測り方)。`npm ls` の「overridden」表示の有無は証拠にならない(overrides を外せば、脆弱な版のままでも消える)。実際に解決された版を測る:
 
 ```bash
+set -o pipefail       # npm ls 自体が失敗した時も止める(pipe の左の失敗を握り潰さない)
 cd security_gate/lint
 npm ci
-npm ls minimatch --all --json | node -e '
-const t=JSON.parse(require("fs").readFileSync(0,"utf8")),v=new Set();
-(function w(d){for(const[k,x]of Object.entries(d.dependencies||{})){if(k==="minimatch"&&x.version)v.add(x.version);w(x)}})(t);
-const lt=(a,b)=>{a=a.split(".").map(Number);b=b.split(".").map(Number);for(let i=0;i<3;i++)if(a[i]!==b[i])return a[i]<b[i];return false};
-console.log("resolved minimatch:",[...v].join(", ")||"(none)");
-if(!v.size||[...v].some(x=>lt(x,"11.0.1"))){console.error("FAIL: minimatch < 11.0.1 or not found");process.exit(1)}'
-echo "rc=$?"          # 0 であること。解決された全 minimatch が 11.0.1 以上
+npm ls minimatch --all --json | node check_minimatch_resolved.js   # 既定の下限は 11.0.1
+echo "rc=$?"          # 0 であること。解決された全 minimatch が厳密な x.y.z で 11.0.1 以上
 npm audit             # 0 件であること
 ```
 
@@ -37,9 +33,21 @@ python3 security_gate/lint/compare_eslint_base_head.py --base-ref <変更前の 
 - exit 0: 4 通りとも一致 / 1: 差がある(差の中身を出す) / 2: 検査できなかった(`npm ci` 失敗・eslint 出力なし・何も lint されなかった mode がある。「差なし」とは別)
 - 要 node 18 以上・npm・git・network
 
+## 実行のしかた(手動と CI)
+
+どちらも今は**手動**で流す。この repo の CI(GitHub Actions)にはこれらを流す job は無い(lockfile や overrides を変えた PR の作者が手で流し、結果を PR 本文に貼る)。
+
+```bash
+# 版の判定と eslint 引数の同期の試験(要 node。repo root から)
+python3 -m unittest security_gate/lint/test_lint_tools.py -v
+# overrides を変えた時: 上の「解決された版の測定」と、下の base/head 比較
+```
+
+`test_lint_tools.py` は、`compare_eslint_base_head.py` の eslint 引数が `rules/lint.py` の `_eslint` と同じであること(ずれたら FAIL)と、`check_minimatch_resolved.js` の判定(prerelease・版不明・欠落は FAIL)を確かめる。
+
 ## 配布先の制約
 
-この lint 設定を他の repo へ配る場合、Node 18 未満の環境では動かせない(minimatch 11 の engines が `18 || 20 || >=22`)。
+この lint 設定を他の repo へ配る場合、engines の `18 || 20 || >=22` を満たさない Node(18 未満と 19・21)では動かせない(minimatch 11 の engines。`npm view minimatch@11.0.1 engines`)。
 
 動作は Node の engines 要件(`npm view minimatch@<版> engines`)に依存する。action の実行環境の Node は `security-gate/action.yml` の `node-version` で決まる。
 
