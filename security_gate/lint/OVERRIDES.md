@@ -1,14 +1,12 @@
-# security_gate/lint の overrides
+# security_gate/lint の依存の版
 
-`package.json` の `overrides` は、依存の ESLint 系が宣言する範囲の外へ版を押し上げている。
+`package.json` に `overrides` は無い。`eslint` 10.15.0 とその `@eslint/config-array` が minimatch 11 以上(CVE-2026-118764 の修正版以上)を依存に宣言するため、minimatch の固定は要らない。
 
 ## minimatch
 
-脆弱性のある版を避けるため、`minimatch` を 11 系に固定している(`overrides.minimatch`)。
+`overrides` を足し直す必要が出たら(eslint を下げる等)、下の確かめ方で解決された版を測る。
 
-外す条件: `eslint` と `@eslint/config-array` が minimatch 11 以上を許す版を出した時。
-
-外した後に確かめること(値ではなく測り方)。`npm ls` の「overridden」表示の有無は証拠にならない(overrides を外せば、脆弱な版のままでも消える)。実際に解決された版を測る:
+確かめること(値ではなく測り方)。`npm ls` の「overridden」表示の有無は証拠にならない(overrides を外せば、脆弱な版のままでも消える)。実際に解決された版を測る:
 
 ```bash
 set -o pipefail       # npm ls 自体が失敗した時も止める(pipe の左の失敗を握り潰さない)
